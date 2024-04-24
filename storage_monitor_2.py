@@ -16,12 +16,16 @@ class MonitorFilesystem(FileSystemEventHandler):
         self.excluded_files = excluded_files
         self.max_storage = max_storage
         self.expiration = expiration
+        self.check_folder_size()
+        # proposed: the converse? map of filepath -> expiration date
+        # check the map: do all non-excluded filepaths have an expiration date?
 
     def on_created(self, event):
         if not event.is_directory:
             print(event.src_path, event.event_type)
             if not self.is_excluded(event.src_path):
                 self.set_expire(event.src_path)
+                # check file size before choosing to save it
             self.check_folder_size()
 
     def is_excluded(self, path):
@@ -33,7 +37,11 @@ class MonitorFilesystem(FileSystemEventHandler):
     def set_expire(self, path):
         expiration_time = datetime.now() + timedelta(days=self.expiration)
         expiration_str = expiration_time.strftime('%H:%M %m/%d/%Y')
-        command = f'echo "rm -f {path}" | at {expiration_str}'
+        # this is dependent on device staying up
+        # but docker is ephemeral
+        # proposed: modify a hash table "delete_on_date" and add the filepath
+        # proposed: the converse? map of filepath -> expiration date
+        command = f'echo "rm -f {path}" | at {expiration_str}' 
         subprocess.run(command, shell=True, check=True)
 
     def check_folder_size(self):
@@ -66,6 +74,19 @@ class MonitorFilesystem(FileSystemEventHandler):
             print(f'Deleted oldest file: {oldest_file}')
         else:
             print('No files to delete')
+    
+    # query for un-expiring files
+    def check_files_expire(self):
+        # run atq command (or parse 'at' command's directory)
+        # pull out filepaths
+        files = ['']
+        file_set = set(files)
+        for foldername, subfolders, filenames in os.walk(self.filesystem_directory):
+            for filename in filenames:
+                filepath = os.path.join(foldername, filename)
+                if not self.is_excluded(filepath):
+                    if not filepath in file_set:
+                        self.set_expire(filepath)
 
 def run_filesystem_watcher(path, exclude_files, max_storage, expiration):
     event_handler = MonitorFilesystem(path, exclude_files, max_storage, expiration)

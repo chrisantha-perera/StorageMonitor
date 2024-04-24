@@ -30,7 +30,7 @@ def delete_oldest_file(filesystem_directory, excluded_files):
     for foldername, subfolders, filenames in os.walk(filesystem_directory):
         for filename in filenames:
             filepath = os.path.join(foldername, filename)
-            if not is_excluded(filepath):
+            if not is_excluded(filepath, excluded_files):
                 file_time = os.path.getmtime(filepath)
                 if file_time < oldest_time:
                     oldest_time = file_time
@@ -41,6 +41,11 @@ def delete_oldest_file(filesystem_directory, excluded_files):
     else:
         print('No files to delete')
 
+def is_excluded(path, excluded_files):
+    for excl_file in excluded_files:
+        if path.endswith(excl_file):
+            return True
+    return False
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
